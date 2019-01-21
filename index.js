@@ -3,20 +3,20 @@ const program = require('commander');
 const path = require('path');
 const crypto = require('crypto');
 const { CLIEngine } = require('eslint');
-const formatter = require('eslint/lib/formatters/stylish');
+const formatter = require('eslint-formatter-friendly');
 const fs = require('fs-extra');
-const glob = require('glob');
 const pkg = require('./package.json');
+const globUtils = require('./lib/glob-utils');
 
 const cwd = process.cwd();
-const engine = new CLIEngine();
+const engine = new CLIEngine({});
 
 function getHash(text) {
   const hashObj = crypto.createHash('sha256');
   hashObj.update(text);
   return hashObj.digest('hex');
 }
-function ignore(res) {
+function ignoreFiles(res) {
   return (
     res.warningCount === 1
     && res.results[0].messages[0]
@@ -26,7 +26,7 @@ function ignore(res) {
 }
 function hasError(res) {
   // skip ignored file warning
-  if (!ignore(res)) {
+  if (!ignoreFiles(res)) {
     return !!res.errorCount;
   }
   return false;
@@ -34,7 +34,7 @@ function hasError(res) {
 
 function printLinterOutput(res) {
   // skip ignored file warning
-  if (!ignore(res)) {
+  if (!ignoreFiles(res)) {
     if (res.errorCount || res.warningCount) {
       const messages = formatter(res.results);
       if (res.errorCount) {
@@ -48,13 +48,16 @@ function printLinterOutput(res) {
 }
 
 process.on('unhandledRejection', err => {
+  console.error(err);
   throw err;
 });
 
 program
   .version(pkg.version)
   .option('--no-cache', '禁用缓存')
-  .option('--cache-location [path]', '指定缓存文件路径', '.eslintcache')
+  .option('--ext <extensions>', '扩展名称', '.js')
+  .option('--id <id>', '添加缓存ID，用于自动更新缓存', '1')
+  .option('--cache-location <path>', '指定缓存文件路径', '.eslint-cache')
   .parse(process.argv);
 
 const cacheFile = path.resolve(program.cacheLocation);
@@ -63,35 +66,41 @@ let cacheInfo = {};
 try {
   cacheInfo = fs.readJSONSync(cacheFile);
 } catch (e) {}
-// printLinterOutput(lint(['./indexx.js']));
-console.log('​cacheInfo', cacheInfo);
-console.log(path.relative(cwd, cacheFile));
+if (cacheInfo._id !== program.id) {
+  cacheInfo = {};
+}
+cacheInfo._id = program.id;
 
-glob('index.js', { ignore: 'node_modules/**/*.*' }, async (err, files) => {
-  if (err) {
-    throw err;
-  }
+async function parse(files) {
   try {
     await Promise.all(
-      files.map(async file => {
-        const text = await fs.readFile(file);
-        const hash = getHash(text);
-        if (cacheInfo[file] === hash) {
+      files.map(async ({ filename, ignore }) => {
+        if (ignore) {
           return;
         }
-        const res = engine.executeOnFiles([file]);
+        const buffer = await fs.readFile(filename);
+        const hash = getHash(buffer);
+        const relativeFilePath = filename.replace(cwd, '');
+        if (cacheInfo[relativeFilePath] === hash) {
+          return;
+        }
+        const res = engine.executeOnFiles([filename]);
         if (!hasError(res)) {
-          cacheInfo[file] = hash;
+          cacheInfo[relativeFilePath] = hash;
         } else {
-          cacheInfo[file] = undefined;
+          cacheInfo[relativeFilePath] = undefined;
         }
         printLinterOutput(res);
       })
     );
     fs.writeJSONSync(cacheFile, cacheInfo);
+    console.log('✔ eslint success');
   } catch (e) {
     fs.writeJSONSync(cacheFile, cacheInfo);
     console.error(e);
+    console.error('❌ eslint error');
     process.exit(1);
   }
-});
+}
+const options = { ignore: true, extensions: program.ext.split(',') };
+parse(globUtils.listFilesToProcess(program.args, options));
