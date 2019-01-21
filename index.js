@@ -24,25 +24,22 @@ function ignoreFiles(res) {
     && res.results[0].messages[0].message.indexOf('ignore') > 1
   );
 }
-function hasError(res) {
+function hasErrorOrWarning(res) {
   // skip ignored file warning
   if (!ignoreFiles(res)) {
-    return !!res.errorCount;
+    return !!res.errorCount || !!res.warningCount;
   }
   return false;
 }
 
 function printLinterOutput(res) {
-  // skip ignored file warning
-  if (!ignoreFiles(res)) {
-    if (res.errorCount || res.warningCount) {
-      const messages = formatter(res.results);
-      if (res.errorCount) {
-        throw new Error(messages);
-      }
-      if (res.warningCount) {
-        console.warn(messages);
-      }
+  if (hasErrorOrWarning(res)) {
+    const messages = formatter(res.results);
+    if (res.errorCount) {
+      throw new Error(messages);
+    }
+    if (res.warningCount) {
+      console.warn(messages);
     }
   }
 }
@@ -85,7 +82,8 @@ async function parse(files) {
           return;
         }
         const res = engine.executeOnFiles([filename]);
-        if (!hasError(res)) {
+        // 没有有错误和者警告的内容缓存，下次不再重复执行
+        if (!hasErrorOrWarning(res)) {
           cacheInfo[relativeFilePath] = hash;
         } else {
           cacheInfo[relativeFilePath] = undefined;
