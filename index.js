@@ -53,7 +53,7 @@ program
   .version(pkg.version)
   .option('--no-cache', '禁用缓存')
   .option('--ext <extensions>', '扩展名称', '.js')
-  .option('--id <id>', '添加缓存ID，用于自动更新缓存', '1')
+  .option('--id <id>', '添加缓存ID，用于自动更新缓存', pkg.version)
   .option('--cache-location <path>', '指定缓存文件路径', '.eslint-cache')
   .parse(process.argv);
 
@@ -75,18 +75,27 @@ async function parse(files) {
         if (ignore) {
           return;
         }
+        const fileKey = filename.replace(cwd, '');
+        const stat = await fs.stat(filename);
+        cacheInfo[fileKey] = cacheInfo[fileKey] || {};
+        const info = cacheInfo[fileKey];
+        if (stat.mtimeMs === info.mtimeMs) {
+          return;
+        }
+        // update mtimeMs
+        info.mtimeMs = stat.mtimeMs;
         const buffer = await fs.readFile(filename);
         const hash = getHash(buffer);
-        const relativeFilePath = filename.replace(cwd, '');
-        if (cacheInfo[relativeFilePath] === hash) {
+        if (info.hash === hash) {
           return;
         }
         const res = engine.executeOnFiles([filename]);
         // 没有有错误和者警告的内容缓存，下次不再重复执行
         if (!hasErrorOrWarning(res)) {
-          cacheInfo[relativeFilePath] = hash;
+          // update content hash
+          info.hash = hash;
         } else {
-          cacheInfo[relativeFilePath] = undefined;
+          cacheInfo[fileKey] = undefined;
         }
         printLinterOutput(res);
       })
