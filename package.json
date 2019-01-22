@@ -1,6 +1,6 @@
 {
   "name": "eslint-cache",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "support eslint cache, because eslint cli not support relative path cache",
   "main": "index.js",
   "scripts": {
