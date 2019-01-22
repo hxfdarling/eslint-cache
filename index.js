@@ -94,6 +94,7 @@ async function parse(files) {
         if (!hasErrorOrWarning(res)) {
           // update content hash
           info.hash = hash;
+          console.log(`✔ eslint success:${fileKey}`);
         } else {
           cacheInfo[fileKey] = undefined;
         }
