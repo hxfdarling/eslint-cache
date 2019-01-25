@@ -77,13 +77,10 @@ async function parse(files) {
         }
         const fileKey = filename.replace(cwd, '');
         const stat = await fs.stat(filename);
-        cacheInfo[fileKey] = cacheInfo[fileKey] || {};
-        const info = cacheInfo[fileKey];
+        const info = cacheInfo[fileKey] || {};
         if (stat.mtimeMs === info.mtimeMs) {
           return;
         }
-        // update mtimeMs
-        info.mtimeMs = stat.mtimeMs;
         const buffer = await fs.readFile(filename);
         const hash = getHash(buffer);
         if (info.hash === hash) {
@@ -92,8 +89,10 @@ async function parse(files) {
         const res = engine.executeOnFiles([filename]);
         // 没有有错误和者警告的内容缓存，下次不再重复执行
         if (!hasErrorOrWarning(res)) {
-          // update content hash
-          info.hash = hash;
+          cacheInfo[fileKey] = {
+            hash,
+            mtimeMs: stat.mtimeMs,
+          };
           console.log(`✔ eslint success:${fileKey}`);
         } else {
           cacheInfo[fileKey] = undefined;
@@ -101,10 +100,10 @@ async function parse(files) {
         printLinterOutput(res);
       })
     );
-    fs.writeJSONSync(cacheFile, cacheInfo);
+    fs.writeJSONSync(cacheFile, cacheInfo, { spaces: 2 });
     console.log('✔ eslint success');
   } catch (e) {
-    fs.writeJSONSync(cacheFile, cacheInfo);
+    fs.writeJSONSync(cacheFile, cacheInfo, { spaces: 2 });
     console.error(e);
     console.error('❌ eslint error');
     process.exit(1);
