@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.1.3"></a>
+
+## [0.1.3](https://github.com/hxfdarling/eslint-cache/compare/v0.1.2...v0.1.3) (2019-01-25)
+
+### Bug Fixes
+
+- 修复二次 lint 无法正确处理 ([979a733](https://github.com/hxfdarling/eslint-cache/commit/979a733))
+
 <a name="0.1.2"></a>
 
 ## [0.1.2](https://github.com/hxfdarling/eslint-cache/compare/v0.1.1...v0.1.2) (2019-01-22)
